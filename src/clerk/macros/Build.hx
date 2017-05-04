@@ -10,8 +10,8 @@ class Build {
           ct = ctx.type.toComplex();
       return macro class $name extends clerk.Form.FormBase {
         public function new() {}
-        public function validate(form:js.html.Element, onError):$ct {
-          return process(form, onError, function (data, report) 
+        public function validate(form:js.html.Element):clerk.Validation<$ct> {
+          return process(form, function (data, report) 
             return new tink.querystring.Parser<String->$ct>(report).parse(data)
           );
         }
