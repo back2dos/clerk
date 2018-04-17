@@ -4,49 +4,35 @@ import js.html.*;
 import js.Browser.*;
 import haxe.unit.*;
 import clerk.*;
+import clerk.types.*;
 
 using tink.CoreApi;
-
-abstract Password(String) to String {
-  @:from static function ofString(s:String):Password 
-    return 
-      if (s.length < 8) throw 'password too short';
-      else cast s;
-}
-
-abstract Email(String) to String {
-  @:from static function ofString(s:String):Email
-    return 
-      if (~/[^@]+@[^@]+/.match(s)) cast s;
-      else throw 'Invalid email $s';
-}
 
 typedef SignupData = {
   name:String,
   email:Email,
-  password:Password
+  password:MinLength<8, 'Password too short'>,
 }
 
-
 class RunTests extends TestCase {
+
+  function expect<T>(div:Element, s:String, form:{ function validate(e:Element):Validation<T>; }, ?pos:haxe.PosInfos) {
+    var ret = form.validate(div);
+    
+    assertEquals(s, switch ret {
+      case Success(_): '';
+      case Failure(e): [for (e in e.data.invalid) e.name].join(',');
+    }, pos);
+
+    return switch ret {
+      case Success(v): v;
+      case Failure(e): e.data.result;
+    }
+  }
   
   function test() {
     var div = document.createDivElement();
-
-    function expect<T>(s:String, form:{ function validate(e:Element):Validation<T>; }, ?pos:haxe.PosInfos) {
-      var ret = form.validate(div);
-      
-      assertEquals(s, switch ret {
-        case Success(_): '';
-        case Failure(e): [for (e in e.data.invalid) e.name].join(',');
-      }, pos);
-
-      return switch ret {
-        case Success(v): v;
-        case Failure(e): e.data.result;
-      }
-    }
-
+    
     div.innerHTML = '
       <form>
         <input type="text" name="name" value="John Doe" />
@@ -55,7 +41,7 @@ class RunTests extends TestCase {
       </form>
     ';
 
-    expect('password', new Form<SignupData>());
+    expect(div, 'password', new Form<SignupData>());
 
     div.innerHTML = '
       <form>
@@ -65,7 +51,7 @@ class RunTests extends TestCase {
       </form>
     ';
 
-    expect('email', new Form<SignupData>());
+    expect(div, 'email', new Form<SignupData>());
 
     div.innerHTML = '
       <form>
@@ -81,11 +67,37 @@ class RunTests extends TestCase {
       </form>
     ';
 
-    expect('', new Form<{ foo: String, bar:Date }>());
-    expect('foo', new Form<{ foo: Date, bar:String }>());
-    expect('bar,foo', new Form<{ foo: Date, bar:Int }>());
-    expect('bar[0].blub', new Form<{ foo: String, bar:Array<{ barf: Float, blub:String }> }>());
-    assertEquals(0.1234, expect('', new Form<{ foo: String, bar:Array<{ barf: Float, ?blub:String }> }>()).bar[0].barf);
+    expect(div, '', new Form<{ foo: String, bar:Date }>());
+    expect(div, 'foo', new Form<{ foo: Date, bar:String }>());
+    expect(div, 'bar,foo', new Form<{ foo: Date, bar:Int }>());
+    expect(div, 'bar[0].blub', new Form<{ foo: String, bar:Array<{ barf: Float, blub:String }> }>());
+    assertEquals(0.1234, expect(div, '', new Form<{ foo: String, bar:Array<{ barf: Float, ?blub:String }> }>()).bar[0].barf);
+  }
+  
+  function testEmpty() {
+    var div = document.createDivElement();
+    
+    div.innerHTML = '
+      <form>
+        <input type="text" name="foo" value="John Doe" />
+        <input type="text" name="bar" value="" />
+        <input type="text" name="baz" />
+      </form>
+    ';
+    expect(div, 'bar,baz', new Form<{ foo:NotEmpty, bar:NotEmpty, baz:NotEmpty }>());
+  }
+  
+  function testRegex() {
+    var div = document.createDivElement();
+    
+    div.innerHTML = '
+      <form>
+        <input type="text" name="foo" value="haxe" />
+      </form>
+    ';
+    expect(div, '', new Form<{ foo:RegExp<~/axe/i>}>());
+    expect(div, '', new Form<{ foo:RegExp<~/haxe/i>}>());
+    expect(div, 'foo', new Form<{ foo:RegExp<~/js/i>}>());
   }
 
   static function main() {
