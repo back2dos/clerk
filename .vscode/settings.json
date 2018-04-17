@@ -1,5 +1,8 @@
 {
     "haxe.displayConfigurations": [
         ["tests.hxml", "-lib", "travix", "-lib", "clerk"]
-    ]
+    ],
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "files.trimTrailingWhitespace": false
 }
